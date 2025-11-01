@@ -4,56 +4,38 @@
 TTS 语音生成工具
 
 从文本文件读取内容，使用 TTS 模型生成指定语言的语音。
-支持从视频样本中提取音频作为参考进行语音克隆。
+支持使用音频样本作为参考进行语音克隆。
 """
 
 import argparse
 import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Optional, Any
 
 # 自动同意 Coqui TTS 服务条款（用于 XTTS v2 等模型）
 os.environ['COQUI_TOS_AGREED'] = '1'
 
-try:
-    from moviepy.editor import VideoFileClip
-
-    MOVIEPY_AVAILABLE = True
-except ImportError:
-    MOVIEPY_AVAILABLE = False
-
-try:
-    import ffmpeg
-
-    FFMPEG_AVAILABLE = True
-except ImportError:
-    FFMPEG_AVAILABLE = False
-
 from TTS.api import TTS
 
 
-def get_reference_audio(audio_or_video_path: str, output_audio_path: str, logger: Optional[Any] = None) -> str:
+def get_reference_audio(audio_path: str, logger: Optional[Any] = None) -> str:
     """
-    获取参考音频，支持直接音频文件或从视频中提取
+    获取参考音频文件路径并验证其存在
     
     Args:
-        audio_or_video_path: 音频文件或视频文件路径
-        output_audio_path: 输出音频文件路径（仅当需要从视频提取时使用）
+        audio_path: 音频文件路径
+        logger: 日志记录器（可选）
     
     Returns:
         参考音频文件路径
     """
-    path = Path(audio_or_video_path)
+    path = Path(audio_path)
     if not path.exists():
-        raise FileNotFoundError(f"文件不存在: {path}")
+        raise FileNotFoundError(f"音频文件不存在: {path}")
 
     # 支持的音频格式
     audio_extensions = {'.wav', '.mp3', '.flac', '.m4a', '.aac', '.ogg', '.opus'}
-    # 常见的视频格式
-    video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v'}
-
     file_ext = path.suffix.lower()
 
     # 定义输出函数
@@ -63,38 +45,10 @@ def get_reference_audio(audio_or_video_path: str, output_audio_path: str, logger
         else:
             print(msg)
 
-    # 如果是音频文件，直接返回
+    # 验证是否为音频文件
     if file_ext in audio_extensions:
-        log_info(f"🎵 检测到音频文件，直接使用: {path}")
+        log_info(f"🎵 使用音频文件: {path}")
         return str(path)
-
-    # 如果是视频文件，需要提取音频
-    if file_ext in video_extensions:
-        log_info(f"📹 检测到视频文件，正在提取音频: {path}")
-        if MOVIEPY_AVAILABLE:
-            video = VideoFileClip(str(path))
-            audio = video.audio
-            if audio is None:
-                video.close()
-                raise ValueError("视频文件中没有音频轨道")
-            audio.write_audiofile(output_audio_path, verbose=False, logger=None)
-            video.close()
-            audio.close()
-            return output_audio_path
-        elif FFMPEG_AVAILABLE:
-            try:
-                (
-                    ffmpeg
-                    .input(str(path))
-                    .output(output_audio_path, acodec='pcm_s16le', ac=1, ar='22050')
-                    .overwrite_output()
-                    .run(capture_stdout=True, capture_stderr=True, quiet=True)
-                )
-                return output_audio_path
-            except ffmpeg.Error as e:
-                raise RuntimeError(f"FFmpeg 错误: {e.stderr.decode()}")
-        else:
-            raise ImportError("需要安装 moviepy 或 ffmpeg-python 来从视频提取音频")
 
     # 未知格式，尝试作为音频文件处理
     log_info(f"⚠️  未知文件格式 ({file_ext})，尝试作为音频文件使用: {path}")
@@ -303,20 +257,14 @@ def generate_speech(
     else:
         output_path = str(Path(output_path))
 
-    # 获取参考音频（支持直接音频文件或从视频提取）
+    # 获取参考音频（仅支持音频文件）
     reference_audio = None
     if video_sample:
-        # 使用临时文件保存提取的音频（如果需要），确保在 TTS 使用前不被删除
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_audio:
-            extracted_audio_path = tmp_audio.name
-
         try:
-            reference_audio = get_reference_audio(video_sample, extracted_audio_path, logger=logger)
+            reference_audio = get_reference_audio(video_sample, logger=logger)
             log_info(f"✅ 参考音频准备完成")
         except Exception as e:
             log_error(f"❌ 获取参考音频失败: {e}")
-            # 清理临时文件
-            Path(extracted_audio_path).unlink(missing_ok=True)
             raise
 
     # 初始化 TTS 模型
@@ -332,9 +280,6 @@ def generate_speech(
     except Exception as e:
         log_error(f"❌ TTS 模型加载失败: {e}")
         log_warning("💡 提示: 尝试使用其他模型或检查网络连接")
-        # 清理临时文件
-        if reference_audio:
-            Path(reference_audio).unlink(missing_ok=True)
         raise
 
     log_info("✅ TTS 模型加载完成")
@@ -374,15 +319,6 @@ def generate_speech(
     except Exception as e:
         log_error(f"❌ 语音生成失败: {e}")
         raise
-    finally:
-        # 清理临时文件（仅当是从视频提取的音频时）
-        if reference_audio and Path(reference_audio).exists():
-            # 检查是否是临时文件（通过路径是否包含临时目录特征判断）
-            try:
-                if 'tmp' in reference_audio.lower() or tempfile.gettempdir() in reference_audio:
-                    Path(reference_audio).unlink(missing_ok=True)
-            except Exception:
-                pass  # 忽略清理错误
 
     log_info(f"✅ 语音生成完成: {output_path}")
     return output_path
@@ -400,9 +336,8 @@ def main():
   # 从文本文件生成语音
   python video_tts.py --input text.txt --language en --output output.wav
   
-  # 使用音频/视频样本进行语音克隆（直接文本）
+  # 使用音频样本进行语音克隆（直接文本）
   uv run video_tts.py --input "恭喜恭喜" --language zh --video-sample audio.wav --output output.wav
-  uv run video_tts.py --input "恭喜恭喜" --language zh --video-sample sample.mp4 --output output.wav
   
   # 使用指定的 TTS 模型
   python video_tts.py --input "Hello world" --language en --model tts_models/multilingual/multi-dataset/xtts_v2
@@ -416,7 +351,7 @@ def main():
                         help="输入文本或文本文件路径（如果路径存在则读取文件，否则作为文本使用）")
     parser.add_argument("--language", "-l", type=str, required=True, help="目标语言代码 (如: en, zh, fr, de 等)")
     parser.add_argument("--video-sample", "-v", type=str, default=None,
-                        help="音频或视频样本路径（可选，用于语音克隆。支持音频文件：.wav, .mp3, .flac 等；视频文件：.mp4, .avi, .mov 等）")
+                        help="音频样本路径（可选，用于语音克隆。支持音频文件：.wav, .mp3, .flac, .m4a, .aac, .ogg, .opus 等）")
     parser.add_argument("--model", "-m", type=str, default=None, help="TTS 模型名称，如果未指定则根据语言自动选择")
     parser.add_argument("--output", "-o", type=str, default=None, help="输出音频文件路径（.wav），如果未指定则自动生成")
     parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"], help="设备类型 (cpu 或 cuda)")

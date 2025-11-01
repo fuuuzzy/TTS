@@ -6,9 +6,6 @@ import os
 import signal
 import time
 
-# 自动同意 Coqui TTS 服务条款（用于 XTTS v2 等模型）
-os.environ['COQUI_TOS_AGREED'] = '1'
-
 import requests
 import yaml
 
@@ -17,6 +14,9 @@ from services.queue_manager import QueueManager
 from services.voice_processor import VoiceProcessor, AudioTooQuietError
 
 logger = get_process_worker_logger()
+
+# 自动同意 Coqui TTS 服务条款（用于 XTTS v2 等模型）
+os.environ['COQUI_TOS_AGREED'] = '1'
 
 should_stop = False
 
@@ -102,7 +102,8 @@ def process_single_task(
     except AudioTooQuietError as e:
         error_msg = str(e)
         error_code = e.error_code
-        logger.error(f"[{task_id}] Task failed: Audio too quiet. RMS: {e.rms_level:.2f} dB, threshold: {e.threshold} dB")
+        logger.error(
+            f"[{task_id}] Task failed: Audio too quiet. RMS: {e.rms_level:.2f} dB, threshold: {e.threshold} dB")
 
         # 失败时直接发送回调（包含错误码）
         if hook_url:
