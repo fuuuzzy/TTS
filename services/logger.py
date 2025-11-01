@@ -8,13 +8,14 @@ MAX_BYTES = 10 * 1024 * 1024  # 10MB
 BACKUP_COUNT = 5
 
 
-def setup_logging(service_name: str, level=logging.INFO):
+def setup_logging(service_name: str, level=logging.INFO, enable_console=True):
     """
     集中配置日志系统，每个服务使用单独的日志文件。
 
     Args:
         service_name (str): 服务的名称（例如 'app' 或 'worker'），用于命名 logger 和日志文件。
         level (int): 日志级别。
+        enable_console (bool): 是否启用控制台输出（worker 建议关闭，避免重复）
     """
     # 确保日志目录存在
     os.makedirs(BASE_LOG_DIR, exist_ok=True)
@@ -39,9 +40,11 @@ def setup_logging(service_name: str, level=logging.INFO):
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    # 4. 控制台处理器 (StreamHandler) - 两个服务都保留控制台输出
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    # 4. 控制台处理器 (StreamHandler) - 可选
+    if enable_console:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     # 5. 文件处理器 (RotatingFileHandler) - 使用服务特定的路径
     file_handler = RotatingFileHandler(
@@ -51,9 +54,6 @@ def setup_logging(service_name: str, level=logging.INFO):
         encoding='utf-8'
     )
     file_handler.setFormatter(formatter)
-
-    # 6. 添加处理器
-    logger.addHandler(console_handler)
     logger.addHandler(file_handler)
 
     return logger
@@ -61,15 +61,17 @@ def setup_logging(service_name: str, level=logging.INFO):
 
 # 辅助函数，用于简化调用
 def get_app_logger():
-    return setup_logging(service_name='app')
+    return setup_logging(service_name='app', enable_console=True)
 
 
 def get_process_worker_logger():
-    return setup_logging(service_name='process_worker')
+    # Worker 在后台运行，禁用控制台输出避免重复
+    return setup_logging(service_name='process_worker', enable_console=False)
 
 
 def get_upload_worker_logger():
-    return setup_logging(service_name='upload_worker')
+    # Worker 在后台运行，禁用控制台输出避免重复
+    return setup_logging(service_name='upload_worker', enable_console=False)
 
 
 class RequestLogger:
