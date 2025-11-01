@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Flask API Server for Voice Clone Service
-支持单文件和批量处理，使用 Redis 优先队列，上传至 R2
 """
 
 import os
