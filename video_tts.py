@@ -130,18 +130,72 @@ def get_text_from_input(input_str: str) -> str:
         return text
 
 
-def select_model(language: str) -> str:
+def get_available_models_by_language(language: str) -> list:
+    """
+    使用 TTS API 动态查询指定语言的可用模型
+    
+    Args:
+        language: 语言代码（如 'en', 'zh', 'ja', 'es' 等）
+    
+    Returns:
+        list: 该语言的可用模型列表，格式为 ['tts_models/lang/dataset/model', ...]
+    """
+    try:
+        from TTS.api import TTS
+        tts = TTS()
+        manager = tts.list_models()
+        all_models = manager.list_tts_models()
+        
+        # 查找匹配语言的模型
+        lang_lower = language.lower()
+        # 语言代码映射（标准化）
+        lang_map = {
+            'zh': 'zh-CN',
+            'chinese': 'zh-CN',
+            'cn': 'zh-CN',
+        }
+        normalized_lang = lang_map.get(lang_lower, lang_lower)
+        
+        # 过滤出该语言的模型
+        matching_models = [
+            model for model in all_models
+            if isinstance(model, str) and f'/{normalized_lang}/' in model or f'/{lang_lower}/' in model
+        ]
+        
+        return matching_models if matching_models else []
+    except Exception:
+        return []
+
+
+def select_model(language: str, use_dynamic_query: bool = False) -> str:
     """
     根据语言自动选择模型
     
-    XTTS v2 支持的语言（16种）：
+    XTTS v2 支持的语言（17种）：
     en (English), es (Spanish), fr (French), de (German), it (Italian),
     pt (Portuguese), pl (Polish), tr (Turkish), ru (Russian), nl (Dutch),
     cs (Czech), ar (Arabic), zh-cn (Chinese), ja (Japanese), hu (Hungarian), ko (Korean)
     
     对于有单语言模型的，优先使用单语言模型；否则使用 XTTS v2 多语言模型
+    
+    Args:
+        language: 语言代码
+        use_dynamic_query: 是否使用 TTS API 动态查询（默认 False，使用预定义映射）
+    
+    Returns:
+        str: 模型名称，格式为 'tts_models/lang/dataset/model'
     """
     lang_lower = language.lower()
+    
+    # 如果启用动态查询，尝试从 TTS API 获取模型
+    if use_dynamic_query:
+        available_models = get_available_models_by_language(language)
+        if available_models:
+            # 优先选择 tacotron2-DDC 类型的模型，否则选择第一个
+            preferred = [m for m in available_models if 'tacotron2-DDC' in m]
+            if preferred:
+                return preferred[0]
+            return available_models[0]
     
     # 单语言模型映射（如果有对应的单语言模型，优先使用）
     model_map = {
@@ -159,13 +213,13 @@ def select_model(language: str) -> str:
         # 德语
         'de': "tts_models/de/thorsten/tacotron2-DDC",
         'german': "tts_models/de/thorsten/tacotron2-DDC",
-        # 西班牙语 - 使用多语言模型（暂无可用的单语言模型）
-        'es': "tts_models/multilingual/multi-dataset/xtts_v2",
-        'spanish': "tts_models/multilingual/multi-dataset/xtts_v2",
-        'español': "tts_models/multilingual/multi-dataset/xtts_v2",
-        # 日语 - 使用多语言模型（暂无可用的单语言模型）
-        'ja': "tts_models/multilingual/multi-dataset/xtts_v2",
-        'japanese': "tts_models/multilingual/multi-dataset/xtts_v2",
+        # 西班牙语 - 有单语言模型可用
+        'es': "tts_models/es/mai/tacotron2-DDC",
+        'spanish': "tts_models/es/mai/tacotron2-DDC",
+        'español': "tts_models/es/mai/tacotron2-DDC",
+        # 日语 - 有单语言模型可用
+        'ja': "tts_models/ja/kokoro/tacotron2-DDC",
+        'japanese': "tts_models/ja/kokoro/tacotron2-DDC",
         # 其他 XTTS v2 支持的语言
         'it': "tts_models/multilingual/multi-dataset/xtts_v2",  # Italian
         'italian': "tts_models/multilingual/multi-dataset/xtts_v2",

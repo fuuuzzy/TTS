@@ -4,10 +4,10 @@ Voice Processor - 使用 video_tts API 进行语音生成
 
 import logging
 import threading
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# 导入 video_tts 的函数和 TTS API
 from video_tts import select_model, get_text_from_input
 from TTS.api import TTS
 
@@ -36,22 +36,17 @@ def _download_audio_from_url(url: str, output_path: str) -> str:
     Returns:
         str: 下载后的文件路径
     """
-    try:
-        import requests
+    import requests
 
-        logger.info(f"Downloading audio from URL: {url}")
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
+    logger.info(f"Downloading audio from URL: {url}")
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
 
-        with open(output_path, 'wb') as f:
-            f.write(response.content)
+    with open(output_path, 'wb') as f:
+        f.write(response.content)
 
-        logger.info(f"Audio downloaded to: {output_path}")
-        return output_path
-
-    except Exception as e:
-        logger.error(f"Failed to download audio from {url}: {str(e)}")
-        raise
+    logger.info(f"Audio downloaded to: {output_path}")
+    return output_path
 
 
 class VoiceProcessor:
@@ -71,7 +66,6 @@ class VoiceProcessor:
                 - temp_dir: 临时目录
                 - device: 设备类型 ('cpu' 或 'cuda' 或 None 表示自动)
         """
-        self.config = config
         self.output_dir = Path(config.get('output_dir', 'outputs'))
         self.temp_dir = Path(config.get('temp_dir', 'temp'))
         self.device = config.get('device')
@@ -101,9 +95,7 @@ class VoiceProcessor:
         Returns:
             TTS: TTS 实例
         """
-        # 使用传入的 logger 或模块默认 logger
         task_logger = logger_instance if logger_instance is not None else logger
-        
         cache_key = (model_name, self.device)
         
         # 检查缓存
@@ -115,7 +107,7 @@ class VoiceProcessor:
             # 创建新的 TTS 实例
             task_logger.info(f"🤖 正在初始化 TTS 模型: {model_name} (device: {self.device})")
             try:
-                tts = TTS(model_name=model_name, progress_bar=False)  # 禁用进度条，避免输出混乱
+                tts = TTS(model_name=model_name, progress_bar=False)
                 task_logger.info(f"📥 模型加载中...")
                 tts.to(self.device)
                 task_logger.info(f"📦 模型已移动到设备: {self.device}")
@@ -158,6 +150,39 @@ class VoiceProcessor:
 
         return str(local_path)
 
+    def _normalize_language_code(self, language: str) -> str:
+        """
+        标准化语言代码（用于多语言模型）
+        
+        Args:
+            language: 原始语言代码
+        
+        Returns:
+            str: 标准化后的语言代码
+        """
+        lang_lower = language.lower()
+        # XTTS v2 使用 zh-cn 而不是 zh
+        if lang_lower in ['zh', 'chinese', 'cn']:
+            return 'zh-cn'
+        return lang_lower
+
+    def _is_multilingual_model(self, tts: TTS, model_name: str) -> bool:
+        """
+        检查模型是否为多语言模型
+        
+        Args:
+            tts: TTS 实例
+            model_name: 模型名称
+        
+        Returns:
+            bool: 是否为多语言模型
+        """
+        try:
+            return tts.is_multi_lingual
+        except (AttributeError, Exception):
+            # 回退到字符串匹配
+            return "xtts" in model_name.lower() or "your_tts" in model_name.lower()
+
     def process_single(
             self,
             text: str,
@@ -172,11 +197,11 @@ class VoiceProcessor:
         
         Args:
             text: 要合成的文本
-            language: 语言代码（如 'en', 'zh', 'ja' 等，直接使用，无需映射）
+            language: 语言代码（如 'en', 'zh', 'ja' 等）
             spk_audio_prompt: 参考音频 URL 或本地路径
             task_id: 任务 ID
             model_name: 模型名称（可选，如果为 None 则自动选择）
-            logger_instance: 日志记录器（可选），如果提供则使用，否则使用模块默认 logger
+            logger_instance: 日志记录器（可选）
         
         Returns:
             str: 生成的音频文件路径
@@ -188,95 +213,68 @@ class VoiceProcessor:
         Note:
             如果参考音频是从 URL 下载的，会在处理完成后自动清理临时文件
         """
-        # 使用传入的 logger 或模块默认 logger
         task_logger = logger_instance if logger_instance is not None else logger
-
         temp_file_to_cleanup = None
+        
         try:
             # 获取参考音频路径
             audio_sample_path = self._get_audio_sample_path(spk_audio_prompt, task_id)
             
-            # 如果是从 URL 下载的文件（在 temp_dir 中），标记需要清理
+            # 如果是从 URL 下载的文件，标记需要清理
             if spk_audio_prompt.startswith(('http://', 'https://')):
                 temp_file_to_cleanup = audio_sample_path
 
             # 生成输出路径
-            output_filename = f"{task_id}_output.wav"
-            output_path = self.output_dir / output_filename
-
+            output_path = self.output_dir / f"{task_id}_output.wav"
             task_logger.info(f"[{task_id}] Processing: language={language}, text_length={len(text)}")
 
-            # 确定使用的模型
+            # 确定使用的模型（如果没有单语言模型，会自动选择多语言模型）
             if model_name is None:
                 model_name = select_model(language)
             
             # 获取或创建 TTS 实例（带缓存）
             tts = self._get_or_create_tts(model_name, logger_instance=task_logger)
             
-            # 读取文本内容（如果输入是文件路径）
+            # 读取文本内容
             try:
                 processed_text = get_text_from_input(text)
             except Exception:
-                # 如果 get_text_from_input 失败，假设 text 本身就是文本内容
+                # 如果失败，假设 text 本身就是文本内容
                 processed_text = text.strip()
                 if not processed_text:
                     raise ValueError("输入的文本不能为空")
             
+            # 检查是否为多语言模型
+            is_multilingual = self._is_multilingual_model(tts, model_name)
+            
+            # 准备 TTS 参数
+            kwargs = {
+                'text': processed_text,
+                'file_path': str(output_path)
+            }
+            
+            # 多语言模型必须传递语言参数，单语言模型不能传递
+            if is_multilingual:
+                normalized_language = self._normalize_language_code(language)
+                kwargs['language'] = normalized_language
+                task_logger.info(f"🌐 使用多语言模型，语言代码: {normalized_language}")
+            else:
+                task_logger.debug(f"使用单语言模型: {model_name}，不传递语言参数")
+            
+            # 如果提供了参考音频，添加 speaker_wav 参数
+            if audio_sample_path:
+                kwargs['speaker_wav'] = audio_sample_path
+                task_logger.info(f"🎯 使用参考音频进行语音克隆: {audio_sample_path}")
+            
             # 生成语音
             task_logger.info(f"🎤 正在生成语音 (语言: {language}, 文本长度: {len(processed_text)} 字符)...")
-            
-            import time
             start_time = time.time()
             
             try:
-                # 准备 TTS 参数
-                kwargs = {
-                    'text': processed_text,
-                    'file_path': str(output_path)
-                }
-                
-                # 检查模型是否支持多语言（使用 TTS API 的 is_multi_lingual 属性）
-                is_multilingual = False
-                try:
-                    is_multilingual = tts.is_multi_lingual
-                    if is_multilingual:
-                        supported_langs = tts.languages if tts.languages else []
-                        task_logger.info(f"🌐 检测到多语言模型，支持的语言: {supported_langs}")
-                except (AttributeError, Exception) as e:
-                    # 如果无法获取属性，回退到字符串匹配
-                    task_logger.debug(f"无法获取模型多语言属性，使用回退判断: {e}")
-                    is_multilingual = ("xtts" in model_name.lower() or 
-                                     "your_tts" in model_name.lower())
-                
-                # 如果是多语言模型，添加语言参数
-                if is_multilingual:
-                    # 标准化语言代码
-                    # XTTS v2 使用的语言代码映射：
-                    # - zh/zh-cn/chinese/cn -> zh-cn
-                    # - 其他保持原样（如 en, fr, de, es, it, pt, pl, tr, ru, nl, cs, ar, ja, hu, ko）
-                    normalized_language = language.lower()
-                    if normalized_language in ['zh', 'chinese', 'cn']:
-                        normalized_language = 'zh-cn'
-                    elif normalized_language == 'zh-cn':
-                        normalized_language = 'zh-cn'  # 保持
-                    
-                    kwargs['language'] = normalized_language
-                    task_logger.info(f"🌐 使用多语言模型，语言代码: {normalized_language}")
-                else:
-                    # 单语言模型不需要语言参数，但如果传入了会被 TTS API 的 _check_arguments 忽略
-                    task_logger.debug(f"使用单语言模型: {model_name}，不传递语言参数")
-                
-                # 如果提供了参考音频，添加 speaker_wav 参数
-                if audio_sample_path:
-                    kwargs['speaker_wav'] = audio_sample_path
-                    task_logger.info(f"🎯 使用参考音频进行语音克隆: {audio_sample_path}")
-                
                 task_logger.info(f"🔄 开始语音合成...")
                 tts.tts_to_file(**kwargs)
-                
                 elapsed_time = time.time() - start_time
                 task_logger.info(f"⏱️  语音合成耗时: {elapsed_time:.2f} 秒")
-                
             except Exception as e:
                 task_logger.error(f"❌ 语音生成失败: {e}")
                 raise
