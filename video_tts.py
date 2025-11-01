@@ -8,10 +8,14 @@ TTS 语音生成工具
 """
 
 import argparse
+import os
 import sys
 import tempfile
 from pathlib import Path
 from typing import Optional, Any
+
+# 自动同意 Coqui TTS 服务条款（用于 XTTS v2 等模型）
+os.environ['COQUI_TOS_AGREED'] = '1'
 
 try:
     from moviepy.editor import VideoFileClip

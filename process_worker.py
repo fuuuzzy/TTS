@@ -6,6 +6,9 @@ import os
 import signal
 import time
 
+# 自动同意 Coqui TTS 服务条款（用于 XTTS v2 等模型）
+os.environ['COQUI_TOS_AGREED'] = '1'
+
 import requests
 import yaml
 
