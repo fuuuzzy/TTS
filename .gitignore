@@ -77,8 +77,6 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# pyenv
-.python-version
 
 # celery beat schedule file
 celerybeat-schedule
@@ -170,3 +168,9 @@ depot/*
 coqui_recipes/*
 local_scripts/*
 coqui_demos/*
+.history
+logs
+outputs_v2
+temp
+config.yaml
+api.http
