@@ -11,7 +11,8 @@ from typing import Dict, Any, Optional
 from video_tts import select_model, get_text_from_input
 from TTS.api import TTS
 
-logger = logging.getLogger(__name__)
+# 使用 process_worker logger，避免重复日志
+logger = logging.getLogger('process_worker')
 
 
 class AudioTooQuietError(Exception):

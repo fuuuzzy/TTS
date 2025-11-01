@@ -26,6 +26,9 @@ def setup_logging(service_name: str, level=logging.INFO):
     # 2. 获取 logger 实例
     logger = logging.getLogger(service_name)
     logger.setLevel(level)
+    
+    # 禁用传播到根 logger，避免重复日志
+    logger.propagate = False
 
     # 避免重复添加 handlers（重要）
     if logger.hasHandlers():
