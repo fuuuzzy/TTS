@@ -61,7 +61,8 @@ def setup_logging(service_name: str, level=logging.INFO, enable_console=True):
 
 # 辅助函数，用于简化调用
 def get_app_logger():
-    return setup_logging(service_name='app', enable_console=True)
+    # App 通过 nohup 后台运行时，禁用控制台输出避免重复
+    return setup_logging(service_name='app', enable_console=False)
 
 
 def get_process_worker_logger():
