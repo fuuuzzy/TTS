@@ -174,13 +174,13 @@ def select_model(language: str, prefer_multilingual: bool = False) -> str:
     }
 
     # 已知有问题的语言（模型文件不完整或下载失败），直接使用 XTTS v2
-    # problematic_languages = {
-    #     'ja', 'japanese',  # kokoro 模型有文件缺失问题
-    # }
-    #
-    # # 如果是已知有问题的语言，使用 XTTS v2
-    # if lang_lower in problematic_languages:
-    #     return 'tts_models/multilingual/multi-dataset/xtts_v2'
+    problematic_languages = {
+        'ja', 'japanese',  # kokoro 模型有文件缺失问题
+    }
+
+    # 如果是已知有问题的语言，使用 XTTS v2
+    if lang_lower in problematic_languages:
+        return 'tts_models/multilingual/multi-dataset/xtts_v2'
 
     # 如果有稳定的单语言模型，使用它
     if lang_lower in stable_single_lang_models:
