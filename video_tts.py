@@ -152,25 +152,16 @@ def select_model(language: str, prefer_multilingual: bool = False) -> str:
 
     # 经过验证的稳定单语言模型（已知可以正常工作）
     stable_single_lang_models = {
-        # 中文 - 稳定
-        'zh': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
+        # 日语 - 稳定
         'ja': "tts_models/ja/kokoro/tacotron2-DDC",
-        'chinese': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
-        'cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
-        'zh-cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
         # 英文 - 稳定
         'en': "tts_models/en/ljspeech/tacotron2-DDC",
-        'english': "tts_models/en/ljspeech/tacotron2-DDC",
         # 法语 - 稳定
         'fr': "tts_models/fr/mai/tacotron2-DDC",
-        'french': "tts_models/fr/mai/tacotron2-DDC",
         # 德语 - 稳定
         'de': "tts_models/de/thorsten/tacotron2-DDC",
-        'german': "tts_models/de/thorsten/tacotron2-DDC",
         # 西班牙语 - 稳定
         'es': "tts_models/es/mai/tacotron2-DDC",
-        'spanish': "tts_models/es/mai/tacotron2-DDC",
-        'español': "tts_models/es/mai/tacotron2-DDC",
     }
 
     # 如果有稳定的单语言模型，使用它
