@@ -131,19 +131,65 @@ def get_text_from_input(input_str: str) -> str:
 
 
 def select_model(language: str) -> str:
-    """根据语言自动选择模型"""
+    """
+    根据语言自动选择模型
+    
+    XTTS v2 支持的语言（16种）：
+    en (English), es (Spanish), fr (French), de (German), it (Italian),
+    pt (Portuguese), pl (Polish), tr (Turkish), ru (Russian), nl (Dutch),
+    cs (Czech), ar (Arabic), zh-cn (Chinese), ja (Japanese), hu (Hungarian), ko (Korean)
+    
+    对于有单语言模型的，优先使用单语言模型；否则使用 XTTS v2 多语言模型
+    """
     lang_lower = language.lower()
+    
+    # 单语言模型映射（如果有对应的单语言模型，优先使用）
     model_map = {
+        # 中文
         'zh': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
         'chinese': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
         'cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
+        'zh-cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
+        # 英文
         'en': "tts_models/en/ljspeech/tacotron2-DDC",
         'english': "tts_models/en/ljspeech/tacotron2-DDC",
+        # 法语
         'fr': "tts_models/fr/mai/tacotron2-DDC",
         'french': "tts_models/fr/mai/tacotron2-DDC",
+        # 德语
         'de': "tts_models/de/thorsten/tacotron2-DDC",
         'german': "tts_models/de/thorsten/tacotron2-DDC",
+        # 西班牙语 - 使用多语言模型（暂无可用的单语言模型）
+        'es': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'spanish': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'español': "tts_models/multilingual/multi-dataset/xtts_v2",
+        # 日语 - 使用多语言模型（暂无可用的单语言模型）
+        'ja': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'japanese': "tts_models/multilingual/multi-dataset/xtts_v2",
+        # 其他 XTTS v2 支持的语言
+        'it': "tts_models/multilingual/multi-dataset/xtts_v2",  # Italian
+        'italian': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'pt': "tts_models/multilingual/multi-dataset/xtts_v2",  # Portuguese
+        'portuguese': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'pl': "tts_models/multilingual/multi-dataset/xtts_v2",  # Polish
+        'polish': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'tr': "tts_models/multilingual/multi-dataset/xtts_v2",  # Turkish
+        'turkish': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'ru': "tts_models/multilingual/multi-dataset/xtts_v2",  # Russian
+        'russian': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'nl': "tts_models/multilingual/multi-dataset/xtts_v2",  # Dutch
+        'dutch': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'cs': "tts_models/multilingual/multi-dataset/xtts_v2",  # Czech
+        'czech': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'ar': "tts_models/multilingual/multi-dataset/xtts_v2",  # Arabic
+        'arabic': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'hu': "tts_models/multilingual/multi-dataset/xtts_v2",  # Hungarian
+        'hungarian': "tts_models/multilingual/multi-dataset/xtts_v2",
+        'ko': "tts_models/multilingual/multi-dataset/xtts_v2",  # Korean
+        'korean': "tts_models/multilingual/multi-dataset/xtts_v2",
     }
+    
+    # 如果找到匹配的模型，返回它；否则默认使用 XTTS v2
     return model_map.get(lang_lower, "tts_models/multilingual/multi-dataset/xtts_v2")
 
 
