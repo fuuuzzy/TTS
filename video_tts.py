@@ -154,7 +154,7 @@ def select_model(language: str, prefer_multilingual: bool = False) -> str:
     stable_single_lang_models = {
         # 中文 - 稳定
         'zh': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
-        'ja': "'tts_models/ja/kokoro/tacotron2-DDC'",
+        'ja': "tts_models/ja/kokoro/tacotron2-DDC",
         'chinese': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
         'cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
         'zh-cn': "tts_models/zh-CN/baker/tacotron2-DDC-GST",
