@@ -67,7 +67,7 @@ dependencies = [
     "nltk",
     "g2pkk>=0.1.1",
     "einops>=0.6.0",
-    "transformers>=4.33.0",
+    "transformers>=4.33.0,<4.34.0",
     "encodec>=0.1.1",
     "unidecode>=1.3.2",
     "num2words",
